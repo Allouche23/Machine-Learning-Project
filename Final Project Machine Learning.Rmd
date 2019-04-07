@@ -1,0 +1,162 @@
+---
+title: "Practical Machine learning"
+author: "Joachim Allouche"
+date: "7 apr 2019"
+output: html_document
+---
+
+## Practical Machine Learning Final Project
+This project aim to predict how people did a certain exercise, using data fromuse data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. 
+The data was collected by Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+The paper contains a descibtion off how the data was prepared picking the relevant variables and splitting it in to a training ad testing set. After that there will be describtion and evaluation off Cross Validation and the two methods I have tried, Classification Tree and Random Forest. Finally I conclude that Random Forest is the best method for predickting how people did the exercise.
+To make the text readable some of the code has been hidden, at the end of the paper you will find all the code.
+
+```{r echo=FALSE, results='hide', warning=FALSE}
+library(ggplot2)
+library(caret)
+library(randomForest)
+```
+
+### Loading and preparing the data
+ 
+ The data is loaded from the same folder as my script.
+```{r }
+trainingdata <- read.csv("pml-training.csv", header = TRUE)
+testdata <- read.csv("pml-testing.csv",header = TRUE)
+```
+
+##### Picking Features (Removing Variables)
+
+
+A lot of the variables in the data-set only contains NA's (See Appendix 1) these are removed in order to simplify the data-set.
+```{r }
+trainingdata <- trainingdata[,colSums(is.na(trainingdata))=="0"]
+testdata <- testdata[,colSums(is.na(testdata))=="0"]
+```
+
+After that i am checking for variables with non to littel variability
+The variables that have non to little variability are then removed. 
+```{r }
+nzv <- nearZeroVar(trainingdata) 
+trainingdata <- trainingdata[,-nzv]
+nzv <- nearZeroVar(testdata)
+testdata <- testdata[,-nzv]
+```
+
+Finally the first 6 variables are removed as they do not have any impact on the outcome.
+This leave us with a trainingset containing 19622 observations and 53 variables.
+```{r }
+trainingdata <- trainingdata[,-c(1:6)]
+testdata <- testdata[,-c(1:6)]
+
+dim(trainingdata)
+```
+
+
+#### slicing the data 
+In order to test different model without risking overfitting, the trainingset is split in to a smaller training set and a test set.  
+```{r }
+set.seed(534)
+intrain <- createDataPartition(trainingdata$classe, p = 0.7, list = FALSE)
+traindata <- trainingdata[intrain,]
+validdata <- trainingdata[-intrain,]
+```
+
+
+### Cross Validation Classification Tree and Random forest
+  To predict the outcome I am using to different methods first I am preparing my Cross Validation code which I will be using in order to limit the effect of overfitting. The function that i am using is the trainControl function with 5 folds 
+ by the end i am using ConfusionMatix to make the results clearer. 
+```{r }
+crva <- trainControl(method = "cv", number=5)
+```
+
+```{r echo=FALSE, results='hide', warning=FALSE }
+library(rattle)
+suppressMessages(library(rattle))
+```
+
+#### Classification Tree
+My first method is classification tree the result clearly an accuracy off .482 clearly indicates that this method is not productive. 
+
+```{r }
+model1 <- train(classe~.,data = traindata, method="rpart", trControl=crva)
+fancyRpartPlot(model1$finalModel)
+```
+
+```{r }
+p1 <- predict(model1, newdata = validdata)
+confm1 <- confusionMatrix(validdata$classe,p1)
+confm1$overall[1]
+```
+
+#### Random Forest Model
+
+The next method is Random Forest This method is giving us an accuracy off .9947 and an out sample error of .00053, which is better than the Accuracy rate of the Classification Tree and in
+ 
+```{r }
+model2 <- randomForest(classe~.,data = traindata, method="rf", trControl=crva, verbose=FALSE)
+p2 <- predict(model2, newdata = validdata)
+```
+
+
+```{r }
+confm2 <- confusionMatrix(validdata$classe,p2)
+confm2
+```
+
+### Conclusion Accuracy and Out of Sample Error
+
+The test clearly indicate that Random Forest is the best fitt, therefore the model with Random Forest will be used in the prediction Quiz.
+
+The Accuracy is .9947
+The Out of Sample Error is .00053
+
+```{r }
+ predict(model2,newdata = testdata)
+```
+
+
+## Appendix 1
+```{r }
+str(trainingdata)
+```
+
+
+## Appendix 2: code
+
+
+```{r eval=FALSE}
+library(ggplot2)
+library(caret)
+library(randomForest)
+trainingdata <- read.csv("pml-training.csv", header = TRUE)
+testdata <- read.csv("pml-testing.csv",header = TRUE)
+ str(trainingdata)
+ trainingdata <- trainingdata[,colSums(is.na(trainingdata))=="0"]
+testdata <- testdata[,colSums(is.na(testdata))=="0"]
+trainingdata <- trainingdata[,-c(1:6)]
+testdata <- testdata[,-c(1:6)]
+dim(trainingdata)
+set.seed(534)
+intrain <- createDataPartition(trainingdata$classe, p = 0.7, list = FALSE)
+traindata <- trainingdata[intrain,]
+validdata <- trainingdata[-intrain,]
+crva <- trainControl(method = "cv", number=5)
+library(rattle)
+suppressMessages(library(rattle))
+model1 <- train(classe~.,data = traindata, method="rpart", trControl=crva)
+fancyRpartPlot(model1$finalModel)
+p1 <- predict(model1, newdata = validdata)
+confm1 <- confusionMatrix(validdata$classe,p1)
+confm1$overall[1]
+model2 <- randomForest(classe~.,data = traindata, method="rf", trControl=crva, verbose=FALSE)
+p2 <- predict(model2, newdata = validdata)
+confm2 <- confusionMatrix(validdata$classe,p2)
+confm2
+predict(model2,newdata = testdata)
+```
+
+
+
+
